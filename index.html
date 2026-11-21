@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>소음 측정기</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <h1>소음 측정기</h1>
+      <p>마이크로 주변 소음의 크기를 실시간으로 추정합니다.</p>
+    </header>
+
+    <section id="meter" class="card meter" data-level="idle" data-running="false" aria-label="소음 측정">
+      <div class="readout">
+        <div class="level-line">
+          <span id="level" class="level">0.0</span>
+          <span class="unit">dB</span>
+        </div>
+        <p class="status-line">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="status">측정 시작을 누르면 소음을 잽니다</span>
+        </p>
+        <dl id="stats" class="stats" hidden>
+          <div><dt>최소</dt><dd id="statMin">--</dd></div>
+          <div><dt>평균</dt><dd id="statAvg">--</dd></div>
+          <div><dt>최대</dt><dd id="statMax">--</dd></div>
+        </dl>
+      </div>
+
+      <div class="scale" aria-hidden="true">
+        <div class="track"><div id="levelBar" class="fill" style="width: 0%"></div></div>
+        <div class="ticks">
+          <span style="left: 0%">0</span>
+          <span style="left: 30.77%">40</span>
+          <span style="left: 53.85%">70</span>
+          <span style="left: 65.38%">85</span>
+          <span style="left: 76.92%">100</span>
+          <span style="left: 100%">130</span>
+        </div>
+      </div>
+
+      <p id="guidance" class="guidance" data-tier="idle">
+        <strong id="guidanceLabel">상태</strong>
+        <span id="guidanceText">측정 준비가 됐습니다.</span>
+      </p>
+      <p id="micError" class="error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button id="startButton" class="button primary" type="button">측정 시작</button>
+        <button id="saveReportButton" class="button" type="button" disabled>보고서 저장</button>
+      </div>
+      <p id="micHold" class="mic-hold" hidden>
+        다시 측정할 때 수치가 바로 이어지도록 마이크 연결을 유지하고 있습니다.
+        <button id="releaseMic" class="link" type="button">마이크 연결 끊기</button>
+      </p>
+
+      <p class="calibration-line">
+        <span id="calibrationStatus">보정: 기본값</span>
+        <button id="openCalibration" class="link" type="button">측정값 맞추기</button>
+      </p>
+      <div class="accurate">
+        <label class="accurate-toggle">
+          <input id="accurateMode" type="checkbox">
+          <span>정확 모드</span>
+        </label>
+        <p class="hint">브라우저의 통화용 음성 처리(잡음 억제·자동 음량 조절)를 끄고 잽니다. 끄면 원본 사이트와 같은 방식으로 잽니다.</p>
+        <div id="deviceNoiseTools" hidden>
+          <p class="calibration-line">
+            <span id="deviceNoiseStatus">기기 소음: 저장 안 됨</span>
+            <button id="measureDeviceNoise" class="link" type="button" disabled>기기 소음 재기</button>
+            <button id="clearDeviceNoise" class="link" type="button" hidden>지우기</button>
+          </p>
+          <p class="hint">주변이 가장 조용할 때 측정을 시작하고 ‘기기 소음 재기’를 누르면 5초 동안 잰 값을 저장해, 이후 측정값에서 뺍니다. 팬 속도가 달라지면 다시 재세요.</p>
+        </div>
+      </div>
+      <p class="note">
+        참고용 추정값입니다. 기기와 마이크에 따라 실제보다 높거나 낮게 나올 수 있습니다.
+        30~60초쯤 재면 평균이 안정되고, 기준 소음계가 있으면 ‘측정값 맞추기’로 보정할 수 있습니다.
+        소리는 이 기기 안에서만 처리되며 어디에도 전송하거나 저장하지 않습니다.
+      </p>
+    </section>
+
+    <section class="charts" aria-label="그래프">
+      <figure class="card chart">
+        <figcaption>주파수 분포</figcaption>
+        <div class="plot"><canvas id="spectrumCanvas"></canvas></div>
+      </figure>
+      <figure class="card chart">
+        <figcaption>최근 소음 변화</figcaption>
+        <div class="plot"><canvas id="historyCanvas"></canvas></div>
+      </figure>
+    </section>
+
+    <section class="card calculator" aria-labelledby="calculatorTitle">
+      <h2 id="calculatorTitle">노출 시간 계산기</h2>
+      <p class="hint">소음 크기를 넣으면 하루에 권장되는 최대 노출 시간을 알려 줍니다. 85 dB에서 8시간이고, 3 dB 커질 때마다 절반으로 줄어듭니다.</p>
+      <div class="calculator-row">
+        <label class="field">
+          <span>소음 크기</span>
+          <span class="field-input"><input id="calcLevel" type="number" inputmode="decimal" min="40" max="130" step="0.5" value="85"> dB</span>
+        </label>
+        <input id="calcSlider" type="range" min="40" max="130" step="0.5" value="85" aria-label="소음 크기">
+      </div>
+      <p class="calculator-result">권장 최대 노출 시간 <strong id="calcResult">8시간</strong></p>
+      <p id="calcNote" class="hint"></p>
+    </section>
+  </main>
+
+  <dialog id="calibrationDialog" class="dialog" aria-labelledby="calibrationTitle">
+    <div class="dialog-body">
+      <h2 id="calibrationTitle">측정값 맞추기</h2>
+      <p class="hint">믿을 만한 소음계가 있다면 같은 자리에서 잰 평균값을 입력하세요. 지금 표시되는 평균이 그 값과 같아지도록 보정합니다.</p>
+      <p class="dialog-current">현재 평균 <b id="calibrationAverage">--</b> dB</p>
+      <label class="field">
+        <span>기준 소음계의 평균값 (dB)</span>
+        <input id="calibrationReference" type="number" inputmode="decimal" step="0.1" min="20" max="130" placeholder="예: 38.5">
+      </label>
+      <p id="calibrationMessage" class="dialog-message" role="status"></p>
+      <div class="dialog-actions">
+        <button id="calibrationSave" class="button primary" type="button" disabled>저장</button>
+        <button id="calibrationReset" class="button" type="button">기본값으로</button>
+        <button id="calibrationClose" class="button" type="button">닫기</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/meter-core.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
